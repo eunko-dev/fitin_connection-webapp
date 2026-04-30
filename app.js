@@ -1,4 +1,35 @@
 const STORAGE_KEY = "fitin_connection_workout_logs_v1";
+// MVP only: in production, store this in environment variables or backend authentication.
+const ADMIN_PASSWORD = "fitin2026";
+
+const CSV_COLUMNS = [
+  "user_id",
+  "name",
+  "identifier",
+  "birth_year",
+  "gender",
+  "school",
+  "workout_date",
+  "workout_type",
+  "frequency_per_week",
+  "duration_minutes",
+  "completed_workout_days",
+  "total_volume_kg",
+  "total_calories",
+  "muscle_group",
+  "muscle_group_volume_kg",
+  "exercise_name",
+  "set_count",
+  "best_weight_kg",
+  "best_reps",
+  "estimated_1rm_kg",
+  "exercise_volume_kg",
+  "condition_score",
+  "workout_goal",
+  "memo",
+  "screenshot_url",
+  "created_at",
+];
 
 const muscleOptions = [
   "등 (Back)",
@@ -238,6 +269,10 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString("ko-KR");
 }
 
+function includesText(value, query) {
+  return normalize(value).toLowerCase().includes(normalize(query).toLowerCase());
+}
+
 function getSessionDetails(store, session) {
   return {
     muscleGroups: store.workout_muscle_groups.filter((group) => group.session_id === session.id),
@@ -348,6 +383,181 @@ function switchView(viewId) {
   $$("[data-view-tab]").forEach((tab) => tab.classList.toggle("active", tab.dataset.viewTab === viewId));
 }
 
+function flattenRows(store) {
+  return store.workout_sessions.flatMap((session) => {
+    const user = store.users.find((item) => item.id === session.user_id) || {};
+    const details = getSessionDetails(store, session);
+    const muscleGroups = details.muscleGroups.length ? details.muscleGroups : [{}];
+    const exercises = details.exercises.length ? details.exercises : [{}];
+    const screenshots = details.screenshots.length ? details.screenshots : [{}];
+    const rows = [];
+
+    muscleGroups.forEach((muscle) => {
+      exercises.forEach((exercise) => {
+        screenshots.forEach((shot) => {
+          rows.push({
+            user_id: session.user_id,
+            name: user.name || "",
+            identifier: user.student_id_or_phone_last4 || "",
+            birth_year: user.birth_year || "",
+            gender: user.gender || "",
+            school: user.school || "",
+            workout_date: session.workout_date,
+            workout_type: session.workout_type,
+            frequency_per_week: session.workout_frequency_per_week,
+            duration_minutes: session.workout_duration_minutes,
+            completed_workout_days: session.completed_workout_days ?? "",
+            total_volume_kg: session.total_volume_kg,
+            total_calories: session.total_calories,
+            muscle_group: muscle.muscle_group || "",
+            muscle_group_volume_kg: muscle.muscle_group_volume_kg ?? "",
+            exercise_name: exercise.exercise_name || "",
+            set_count: exercise.set_count ?? "",
+            best_weight_kg: exercise.best_weight_kg ?? "",
+            best_reps: exercise.best_reps ?? "",
+            estimated_1rm_kg: exercise.estimated_1rm_kg ?? "",
+            exercise_volume_kg: exercise.total_exercise_volume_kg ?? "",
+            condition_score: session.condition_score,
+            workout_goal: session.workout_goal || "",
+            memo: session.memo || "",
+            screenshot_url: shot.screenshot_url || "",
+            created_at: session.created_at,
+          });
+        });
+      });
+    });
+
+    return rows;
+  });
+}
+
+function getFilteredAdminRows() {
+  const store = readStore();
+  const form = $("#adminFilters");
+  const formData = new FormData(form);
+  const startDate = normalize(formData.get("startDate"));
+  const endDate = normalize(formData.get("endDate"));
+  const nameQuery = normalize(formData.get("nameQuery"));
+  const typeQuery = normalize(formData.get("typeQuery"));
+  const bodyPartQuery = normalize(formData.get("bodyPartQuery"));
+
+  return flattenRows(store).filter((row) => {
+    const inDateRange = (!startDate || row.workout_date >= startDate) && (!endDate || row.workout_date <= endDate);
+    const matchesName = !nameQuery || includesText(row.name, nameQuery);
+    const matchesType = !typeQuery || includesText(row.workout_type, typeQuery);
+    const matchesBodyPart = !bodyPartQuery || includesText(row.muscle_group, bodyPartQuery);
+    return inDateRange && matchesName && matchesType && matchesBodyPart;
+  });
+}
+
+function getAdminSessionRows() {
+  const store = readStore();
+  const rows = getFilteredAdminRows();
+  const uniqueSessionIds = new Set();
+
+  return store.workout_sessions.filter((session) => {
+    if (uniqueSessionIds.has(session.id)) return false;
+    const matches = rows.some((row) => row.created_at === session.created_at && row.user_id === session.user_id);
+    if (matches) uniqueSessionIds.add(session.id);
+    return matches;
+  });
+}
+
+function renderAdminDashboard() {
+  const store = readStore();
+  const filteredRows = getFilteredAdminRows();
+  const filteredSessions = getAdminSessionRows();
+  const totalVolume = filteredSessions.reduce((sum, session) => sum + Number(session.total_volume_kg || 0), 0);
+  const totalCalories = filteredSessions.reduce((sum, session) => sum + Number(session.total_calories || 0), 0);
+  const userIds = new Set(filteredSessions.map((session) => session.user_id));
+
+  $("#adminSummary").innerHTML = `
+    <div class="stat-card"><span>총 사용자 (Total Users)</span><strong>${userIds.size}</strong></div>
+    <div class="stat-card"><span>운동 세션 (Workout Sessions)</span><strong>${filteredSessions.length}</strong></div>
+    <div class="stat-card volume"><span>총 볼륨 (Total Volume)</span><strong>${formatNumber(totalVolume)} kg</strong></div>
+    <div class="stat-card calories"><span>총 칼로리 (Total Calories)</span><strong>${formatNumber(totalCalories)}</strong></div>
+  `;
+
+  const uniqueRows = filteredSessions.map((session) => {
+    const user = store.users.find((item) => item.id === session.user_id) || {};
+    const details = getSessionDetails(store, session);
+    return {
+      user,
+      session,
+      muscles: details.muscleGroups.map((group) => group.muscle_group).filter(Boolean).join(", ") || "-",
+    };
+  });
+
+  $("#adminTableBody").innerHTML = uniqueRows
+    .map(
+      ({ user, session, muscles }) => `
+        <tr>
+          <td>${user.name || "-"}</td>
+          <td>${session.workout_date}</td>
+          <td>${session.workout_type}</td>
+          <td>${muscles}</td>
+          <td>${formatNumber(session.total_volume_kg)} kg</td>
+          <td>${formatNumber(session.total_calories)}</td>
+          <td>${session.condition_score || "-"} / 5</td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  $("#adminTableMessage").textContent = filteredRows.length
+    ? `${filteredSessions.length}개 세션, ${filteredRows.length}개 export row가 검색되었습니다.`
+    : "검색 조건과 일치하는 기록이 없습니다. (No matching records.)";
+}
+
+function handleAdminLogin(event) {
+  event.preventDefault();
+  const password = normalize(new FormData(event.currentTarget).get("adminPassword"));
+
+  if (password !== ADMIN_PASSWORD) {
+    $("#adminPanel").hidden = true;
+    $("#adminLoginMessage").textContent = "비밀번호가 올바르지 않습니다. (Incorrect password.)";
+    $("#adminLoginMessage").classList.add("error");
+    return;
+  }
+
+  $("#adminPanel").hidden = false;
+  $("#adminLoginMessage").textContent = "관리자 화면이 열렸습니다. (Admin unlocked.)";
+  $("#adminLoginMessage").classList.remove("error");
+  renderAdminDashboard();
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function downloadFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCsv() {
+  const rows = getFilteredAdminRows();
+  const csv = [
+    CSV_COLUMNS.join(","),
+    ...rows.map((row) => CSV_COLUMNS.map((column) => csvEscape(row[column])).join(",")),
+  ].join("\n");
+
+  downloadFile("fitin_connection_workout_records.csv", csv, "text/csv;charset=utf-8");
+}
+
+function exportJson() {
+  const rows = getFilteredAdminRows();
+  downloadFile("fitin_connection_workout_records.json", JSON.stringify(rows, null, 2), "application/json");
+}
+
 function handleSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -438,6 +648,10 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#addExercise").addEventListener("click", addExercise);
   $("#workoutForm").addEventListener("submit", handleSubmit);
   $("#recordsForm").addEventListener("submit", handleRecordsLookup);
+  $("#adminLoginForm").addEventListener("submit", handleAdminLogin);
+  $("#adminFilters").addEventListener("input", renderAdminDashboard);
+  $("#exportCsv").addEventListener("click", exportCsv);
+  $("#exportJson").addEventListener("click", exportJson);
   $$("[data-view-tab]").forEach((tab) => {
     tab.addEventListener("click", () => switchView(tab.dataset.viewTab));
   });

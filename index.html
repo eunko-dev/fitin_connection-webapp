@@ -20,7 +20,7 @@
       <nav class="tabs" aria-label="Fitin Connection pages">
         <button class="tab active" data-view-tab="submitView" type="button">운동 기록 제출 (Submit)</button>
         <button class="tab" data-view-tab="recordsView" type="button">내 기록 조회 (My Records)</button>
-        <button class="tab disabled" type="button" disabled>관리자 (Next)</button>
+        <button class="tab" data-view-tab="adminView" type="button">관리자 (Admin)</button>
       </nav>
 
       <main>
@@ -234,6 +234,97 @@
           </form>
 
           <section id="recordsResults" class="records-results" aria-live="polite"></section>
+        </section>
+
+        <section id="adminView" class="page-view">
+          <section class="panel intro-card">
+            <p class="section-kicker">Session 3</p>
+            <h2>관리자 (Admin)</h2>
+            <p>
+              관리자 비밀번호를 입력한 뒤에만 전체 기록, 검색, 필터, CSV/JSON export를 사용할 수 있습니다.
+              일반 사용자는 이 화면에서 데이터를 볼 수 없습니다.
+            </p>
+          </section>
+
+          <form id="adminLoginForm" class="panel">
+            <p class="section-kicker">Password Gate</p>
+            <h2>관리자 비밀번호 (Admin Password)</h2>
+            <div class="field-grid">
+              <label>
+                비밀번호 (Password) <span class="required">*</span>
+                <input name="adminPassword" type="password" required />
+              </label>
+            </div>
+            <div class="records-actions">
+              <button class="primary-button" type="submit">관리자 접속 (Unlock Admin)</button>
+              <p id="adminLoginMessage" class="form-message" role="status"></p>
+            </div>
+          </form>
+
+          <section id="adminPanel" class="admin-panel" hidden>
+            <section class="panel">
+              <div class="section-header">
+                <div>
+                  <p class="section-kicker">Admin Summary</p>
+                  <h2>전체 기록 요약 (All Records Summary)</h2>
+                </div>
+                <div class="button-row">
+                  <button id="exportCsv" class="secondary-button" type="button">CSV 내보내기 (Export CSV)</button>
+                  <button id="exportJson" class="secondary-button" type="button">JSON 내보내기 (Export JSON)</button>
+                </div>
+              </div>
+              <div id="adminSummary" class="stat-grid"></div>
+            </section>
+
+            <form id="adminFilters" class="panel">
+              <p class="section-kicker">Filters</p>
+              <h2>검색 / 필터 (Search / Filter)</h2>
+              <div class="field-grid">
+                <label>
+                  시작일 (Start Date)
+                  <input name="startDate" type="date" />
+                </label>
+                <label>
+                  종료일 (End Date)
+                  <input name="endDate" type="date" />
+                </label>
+                <label>
+                  이름 검색 (Search by Name)
+                  <input name="nameQuery" type="text" placeholder="황제웅" />
+                </label>
+                <label>
+                  운동 종류 검색 (Workout Type)
+                  <input name="typeQuery" type="text" placeholder="헬스" />
+                </label>
+                <label class="wide">
+                  운동 부위 검색 (Body Part)
+                  <input name="bodyPartQuery" type="text" placeholder="등, Back, 이두" />
+                </label>
+              </div>
+            </form>
+
+            <section class="panel">
+              <p class="section-kicker">All Submitted Records</p>
+              <h2>전체 제출 기록 (All Workout Sessions)</h2>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>이름</th>
+                      <th>날짜</th>
+                      <th>종류</th>
+                      <th>부위</th>
+                      <th>볼륨</th>
+                      <th>칼로리</th>
+                      <th>컨디션</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adminTableBody"></tbody>
+                </table>
+              </div>
+              <p id="adminTableMessage" class="hint"></p>
+            </section>
+          </section>
         </section>
       </main>
     </div>

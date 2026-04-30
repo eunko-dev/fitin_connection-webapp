@@ -167,6 +167,12 @@ h2 {
   margin-top: 18px;
 }
 
+.admin-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -194,6 +200,12 @@ h2 {
 .records-actions {
   flex-wrap: wrap;
   margin-top: 18px;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .stat-grid {
@@ -341,6 +353,36 @@ input[type="file"] {
   color: var(--muted);
   padding: 22px;
   text-align: center;
+}
+
+.table-wrap {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 12px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+td {
+  color: #eef5ff;
+  font-size: 0.9rem;
 }
 
 .primary-button,
