@@ -1,6 +1,11 @@
 const STORAGE_KEY = "fitin_connection_workout_logs_v1";
 // MVP only: in production, store this in environment variables or backend authentication.
 const ADMIN_PASSWORD = "fitin2026";
+// Supabase is intentionally optional in this static MVP. Fill these values and add
+// backend/Edge Function auth before using Supabase for real student data.
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+const USE_SUPABASE = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 const CSV_COLUMNS = [
   "user_id",
