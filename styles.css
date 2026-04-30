@@ -123,6 +123,14 @@ h2 {
   cursor: not-allowed;
 }
 
+.page-view {
+  display: none;
+}
+
+.page-view.active {
+  display: block;
+}
+
 .progress {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -153,6 +161,12 @@ h2 {
   gap: 18px;
 }
 
+.records-results {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -163,7 +177,9 @@ h2 {
 
 .section-header,
 .repeat-card-header,
-.submit-bar {
+.submit-bar,
+.records-actions,
+.stat-grid {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -173,6 +189,47 @@ h2 {
 .section-header {
   flex-wrap: wrap;
   margin-bottom: 10px;
+}
+
+.records-actions {
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.stat-grid {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.stat-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 14px;
+}
+
+.stat-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.stat-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 1.5rem;
+}
+
+.stat-card.volume strong {
+  color: var(--blue);
+}
+
+.stat-card.calories strong {
+  color: var(--green);
 }
 
 .field-grid {
@@ -236,6 +293,54 @@ input[type="file"] {
   border-radius: 16px;
   background: var(--panel-soft);
   padding: 14px;
+}
+
+.record-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.record-item {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: var(--panel-soft);
+  padding: 14px;
+}
+
+.record-item h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mini-grid span,
+.body-part-pill {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #dce7f7;
+  padding: 9px 10px;
+  font-size: 0.86rem;
+}
+
+.body-part-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.empty-state {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  color: var(--muted);
+  padding: 22px;
+  text-align: center;
 }
 
 .primary-button,
@@ -304,6 +409,10 @@ input[type="file"] {
 
   .field-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .wide {

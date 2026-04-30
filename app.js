@@ -37,6 +37,10 @@ function writeStore(store) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
 }
 
+function normalize(value) {
+  return String(value || "").trim();
+}
+
 function seedStore() {
   const userId = uid("user");
   const sessionId = uid("session");
@@ -183,9 +187,9 @@ function validateImages(fileList) {
 }
 
 function findOrCreateUser(store, formData) {
-  const name = formData.get("name").trim();
-  const identifier = formData.get("identifier").trim();
-  const birthYear = formData.get("birthYear").trim();
+  const name = normalize(formData.get("name"));
+  const identifier = normalize(formData.get("identifier"));
+  const birthYear = normalize(formData.get("birthYear"));
   const existing = store.users.find(
     (user) =>
       user.name === name &&
@@ -201,7 +205,7 @@ function findOrCreateUser(store, formData) {
     student_id_or_phone_last4: identifier,
     birth_year: birthYear,
     gender: formData.get("gender"),
-    school: formData.get("school").trim(),
+    school: normalize(formData.get("school")),
     created_at: new Date().toISOString(),
   };
 
@@ -213,6 +217,135 @@ function showMessage(message, isError = false) {
   const messageEl = $("#formMessage");
   messageEl.textContent = message;
   messageEl.classList.toggle("error", isError);
+}
+
+function showRecordsMessage(message, isError = false) {
+  const messageEl = $("#recordsMessage");
+  messageEl.textContent = message;
+  messageEl.classList.toggle("error", isError);
+}
+
+function findUserByIdentity(store, name, identifier, birthYear) {
+  return store.users.find(
+    (user) =>
+      normalize(user.name) === normalize(name) &&
+      normalize(user.student_id_or_phone_last4) === normalize(identifier) &&
+      normalize(user.birth_year) === normalize(birthYear),
+  );
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("ko-KR");
+}
+
+function getSessionDetails(store, session) {
+  return {
+    muscleGroups: store.workout_muscle_groups.filter((group) => group.session_id === session.id),
+    exercises: store.workout_exercises.filter((exercise) => exercise.session_id === session.id),
+    screenshots: store.workout_screenshots.filter((shot) => shot.session_id === session.id),
+  };
+}
+
+function renderRecords(user, sessions, store) {
+  const totalVolume = sessions.reduce((sum, session) => sum + Number(session.total_volume_kg || 0), 0);
+  const totalCalories = sessions.reduce((sum, session) => sum + Number(session.total_calories || 0), 0);
+  const recentDates = sessions
+    .slice()
+    .sort((a, b) => b.workout_date.localeCompare(a.workout_date))
+    .slice(0, 5)
+    .map((session) => session.workout_date)
+    .join(", ");
+  const bodyPartSummary = {};
+
+  sessions.forEach((session) => {
+    getSessionDetails(store, session).muscleGroups.forEach((group) => {
+      const name = group.muscle_group || "기타 (Other)";
+      bodyPartSummary[name] = (bodyPartSummary[name] || 0) + Number(group.muscle_group_volume_kg || 0);
+    });
+  });
+
+  const sortedSessions = sessions.slice().sort((a, b) => b.workout_date.localeCompare(a.workout_date));
+  const bodyPartPills = Object.entries(bodyPartSummary)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, volume]) => `<span class="body-part-pill">${name}: ${formatNumber(volume)} kg</span>`)
+    .join("");
+
+  const records = sortedSessions
+    .map((session) => {
+      const details = getSessionDetails(store, session);
+      const muscles = details.muscleGroups.map((group) => group.muscle_group).filter(Boolean).join(", ") || "-";
+      const exerciseNames = details.exercises.map((exercise) => exercise.exercise_name).filter(Boolean).join(", ") || "스크린샷 기반 확인 예정";
+      const screenshotNames = details.screenshots.map((shot) => shot.screenshot_url).join(", ") || "-";
+
+      return `
+        <article class="record-item">
+          <h3>${session.workout_date} · ${session.workout_type}</h3>
+          <div class="mini-grid">
+            <span>운동 시간: ${formatNumber(session.workout_duration_minutes)}분</span>
+            <span>총 볼륨: ${formatNumber(session.total_volume_kg)} kg</span>
+            <span>칼로리: ${formatNumber(session.total_calories)} kcal</span>
+            <span>컨디션: ${session.condition_score || "-"} / 5</span>
+            <span>운동 부위: ${muscles}</span>
+            <span>운동 종목: ${exerciseNames}</span>
+            <span>완료일: ${session.completed_workout_days ?? "-"}일</span>
+            <span>사진: ${screenshotNames}</span>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  $("#recordsResults").innerHTML = `
+    <section class="panel">
+      <p class="section-kicker">Matched User</p>
+      <h2>${user.name}님의 기록 (Your Workout Records)</h2>
+      <div class="stat-grid">
+        <div class="stat-card"><span>총 제출 운동 (Total Sessions)</span><strong>${sessions.length}</strong></div>
+        <div class="stat-card volume"><span>총 볼륨 (Total Volume)</span><strong>${formatNumber(totalVolume)} kg</strong></div>
+        <div class="stat-card calories"><span>총 칼로리 (Total Calories)</span><strong>${formatNumber(totalCalories)}</strong></div>
+        <div class="stat-card"><span>최근 운동일 (Recent Dates)</span><strong>${recentDates || "-"}</strong></div>
+      </div>
+      <div class="body-part-list">${bodyPartPills || '<span class="body-part-pill">운동 부위 볼륨 없음 (No body part volume yet)</span>'}</div>
+    </section>
+    <section class="panel">
+      <p class="section-kicker">Uploaded Records</p>
+      <h2>업로드된 기록 목록 (Uploaded Records List)</h2>
+      <div class="record-list">${records}</div>
+    </section>
+  `;
+}
+
+function handleRecordsLookup(event) {
+  event.preventDefault();
+  const formData = new FormData(event.currentTarget);
+  const store = readStore();
+  const user = findUserByIdentity(
+    store,
+    formData.get("recordName"),
+    formData.get("recordIdentifier"),
+    formData.get("recordBirthYear"),
+  );
+
+  if (!user) {
+    $("#recordsResults").innerHTML = '<div class="empty-state">일치하는 기록이 없습니다. (No matching records found.)</div>';
+    showRecordsMessage("일치하는 사용자를 찾지 못했습니다. (No matching user.)", true);
+    return;
+  }
+
+  const sessions = store.workout_sessions.filter((session) => session.user_id === user.id);
+  if (!sessions.length) {
+    $("#recordsResults").innerHTML = '<div class="empty-state">아직 제출된 운동 기록이 없습니다. (No workouts submitted yet.)</div>';
+    showRecordsMessage("사용자는 확인되었지만 운동 기록이 없습니다. (User found, no sessions.)", true);
+    return;
+  }
+
+  renderRecords(user, sessions, store);
+  showRecordsMessage("본인 기록만 표시 중입니다. (Showing matched records only.)");
+}
+
+function switchView(viewId) {
+  $$(".page-view").forEach((view) => view.classList.toggle("active", view.id === viewId));
+  $$("[data-view-tab]").forEach((tab) => tab.classList.toggle("active", tab.dataset.viewTab === viewId));
 }
 
 function handleSubmit(event) {
@@ -250,7 +383,7 @@ function handleSubmit(event) {
     total_calories: Number(formData.get("totalCalories")),
     workout_goal: formData.get("goal"),
     condition_score: Number(formData.get("condition")),
-    memo: formData.get("memo").trim(),
+    memo: normalize(formData.get("memo")),
     created_at: createdAt,
   });
 
@@ -304,4 +437,8 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#addMuscleGroup").addEventListener("click", addMuscleGroup);
   $("#addExercise").addEventListener("click", addExercise);
   $("#workoutForm").addEventListener("submit", handleSubmit);
+  $("#recordsForm").addEventListener("submit", handleRecordsLookup);
+  $$("[data-view-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => switchView(tab.dataset.viewTab));
+  });
 });
